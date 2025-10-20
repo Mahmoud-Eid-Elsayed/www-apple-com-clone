@@ -1,0 +1,102 @@
+.apple-footer {
+  background-color: rgb(29, 29, 31);
+  color: rgba(255, 255, 255, 0.72);
+  padding: 40px 12%;
+  font-family: "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.apple-footer a {
+  color: #2997ff;
+  text-decoration: none;
+}
+
+.apple-footer a:hover {
+  text-decoration: underline;
+}
+
+.legal-list {
+  text-align: left;
+  padding-left: 20px;
+  margin-bottom: 20px;
+}
+
+.legal-list a {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+}
+.legal-list a:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+.footer-divider {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  margin: 24px 0;
+}
+
+.footer-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+}
+
+.footer-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 24px;
+  text-align: left;
+  margin-top: 24px;
+}
+
+.footer-links h4 {
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.footer-links a {
+  display: block;
+  margin-bottom: 6px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+}
+
+.footer-links a:hover {
+  color: #fff;
+}
+
+.retailer-text {
+  margin-top: 24px;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.retailer-link {
+  color: #2997ff;
+}
+
+.retailer-link:hover {
+  text-decoration: underline;
+}
+
+.copyright {
+  text-align: left;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.56);
+}
+
+@media (max-width: 768px) {
+  .apple-footer {
+    padding: 30px 8%;
+  }
+
+  .footer-breadcrumb {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

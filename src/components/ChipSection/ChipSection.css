@@ -1,0 +1,149 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.chip-section-container {
+  width: 99.6vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  background-color: #000000;
+  color: rgb(200, 194, 189);
+  overflow-x: hidden;
+}
+
+.chip-section-wrapper {
+  width: 100%;
+  max-width: 980px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 0 16px;
+}
+
+.section-chip-filter,
+.section-chip-headline,
+.section-chip-description,
+.section-chip-callouts {
+  width: 100%;
+}
+
+.glow-text {
+  position: relative;
+  isolation: isolate;
+}
+
+.glow-protruding {
+  font-family: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica,
+    Arial, sans-serif;
+  font-weight: 600;
+  font-size: 64px;
+  color: rgb(255, 250, 246);
+  text-shadow: 0px -1px 30px rgba(255, 215, 0, 0.6),
+    -1px -2px 80px rgba(255, 215, 0, 0.4);
+  position: relative;
+  z-index: 1;
+}
+
+@media (min-width: 768px) {
+  .glow-protruding {
+    font-size: 80px;
+  }
+}
+
+.headline.typography-ps-headline-super {
+  font-family: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica,
+    Arial, sans-serif;
+  font-weight: 600;
+  font-size: 40px;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+}
+
+@media (min-width: 768px) {
+  .headline.typography-ps-headline-super {
+    font-size: 80px;
+  }
+}
+
+.copy.ps-swatch-secondary.typography-ps-intro-semibold {
+  font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.381;
+  color: #86868b;
+}
+
+@media (min-width: 768px) {
+  .copy.ps-swatch-secondary.typography-ps-intro-semibold {
+    font-size: 21px;
+  }
+}
+
+.chip-content {
+  margin-top: 50px;
+}
+
+@media (max-width: 734px) {
+  .chip-content {
+    text-align: start;
+  }
+}
+
+.callouts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  grid-column-gap: 0px;
+  grid-row-gap: 50px;
+  align-items: start;
+  align-content: space-between;
+}
+
+.callout-item {
+  text-align: left;
+  max-width: 80%;
+}
+
+.chip-section-container hr {
+  margin: 0 0 8px;
+  border: 0;
+  border-top: 1px solid #86868b;
+  opacity: 1;
+}
+
+.section-chip-headline,
+.section-chip-description {
+  padding: 20px 0;
+}
+
+.section-chip-callouts {
+  padding: 40px 0;
+}
+
+.callout-copy {
+  font-family: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial,
+    sans-serif;
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.333;
+  color: #86868b;
+}
+
+@media (min-width: 768px) {
+  .callout-copy {
+    font-size: 24px;
+  }
+}
+
+.theme-dark {
+  --sk-body-background-color: rgb(0, 0, 0);
+  --sk-body-text-color: rgb(245, 245, 247);
+  --sk-headline-text-color: rgb(245, 245, 247);
+}

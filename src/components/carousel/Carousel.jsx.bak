@@ -1,0 +1,835 @@
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+
+export default function Carousel({ defaultDuration = 7 }) {
+  const carouselRef = useRef(null);
+  const innerRef = useRef(null);
+  const playBtnRef = useRef(null);
+  const dotsWrapRef = useRef(null);
+  const sectionRef = useRef(null);
+  const prevOverlayRef = useRef(null);
+  const nextOverlayRef = useRef(null);
+  const slideRefs = useRef([]);
+
+  const slideWidth = useRef(0);
+  const wrapperWidth = useRef(0);
+  const dragStartX = useRef(0);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const [current, setCurrent] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [slideCompleted, setSlideCompleted] = useState(false);
+  const [lastDirection, setLastDirection] = useState("ltr");
+  const slideTimerRef = useRef(null);
+  const slideStartTimeRef = useRef(0);
+  const slideDurationMsRef = useRef(0);
+  const slideRemainingMsRef = useRef(0);
+
+  const items = useMemo(() => [
+    {
+      type: "video",
+      src: "/videos/Carousel/slide01.mp4",
+      alt: "Slide 1",
+      caption: "So fast. So fluid.<br>Get a feel for the all-new<br>Camera Control.",
+    },
+    {
+      type: "video",
+      src: "/videos/Carousel/slide02.mp4",
+      alt: "Slide 2",
+      caption: "4K 120 fps Dolby Vision.<br>4 studio-quality mics.<br>A Pro studio in your pocket.",
+    },
+    {
+      type: "image",
+      src: "/images/Carousel/slide-03.webp",
+      alt: "Slide 3",
+      caption: "Thinner borders — for even larger<br>displays. Brilliant.",
+    },
+    {
+      type: "video",
+      src: "/videos/Carousel/slide04.mp4",
+      alt: "Slide 4",
+      caption: "All-new A18 Pro chip. Unrivaled<br>performance. Unprecedented<br>efficiency.",
+    },
+    {
+      type: "image",
+      src: "/images/Carousel/slide-05.webp",
+      alt: "Slide 5",
+      caption: "A huge leap in battery life.<br>Game on.",
+    },
+    {
+      type: "image",
+      src: "/images/Carousel/slide-06.webp",
+      alt: "Slide 6",
+      caption: "The first iPhone designed<br>for Apple Intelligence.<br>Personal, private, powerful.",
+    },
+  ], []);
+
+  const lerp = (start, end, t) => start + t * (end - start);
+
+  const getTranslateX = (slideIndex, currSlide, sw = slideWidth.current, ww = wrapperWidth.current, spacing = 10) =>
+    (sw + spacing) * (slideIndex - currSlide) + (ww - sw) / 2;
+
+  const isWithinBounds = useCallback((index) => index >= 0 && index < items.length, [items.length]);
+
+  const updatePositions = useCallback((animate = true) => {
+    slideRefs.current.forEach((slide, i) => {
+      if (slide) {
+        const pos = getTranslateX(i, current);
+        slide.style.transition = animate ? "transform 0.4s ease-out" : "none";
+        slide.style.transform = `translateX(${pos}px)`;
+      }
+    });
+  }, [current]);
+
+  useEffect(() => {
+    const resizeObserver = new ResizeObserver(() => {
+      if (slideRefs.current[0] && carouselRef.current) {
+        slideWidth.current = slideRefs.current[0].offsetWidth;
+        wrapperWidth.current = carouselRef.current.offsetWidth;
+        updatePositions(false);
+      }
+    });
+    if (carouselRef.current) resizeObserver.observe(carouselRef.current);
+    return () => resizeObserver.disconnect();
+  }, [updatePositions]);
+
+  useEffect(() => {
+    if (!isDragging) {
+      updatePositions(true);
+    }
+  }, [current, isDragging, updatePositions]);
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.12) {
+            section.classList.add("carousel-in-view");
+          } else {
+            section.classList.remove("carousel-in-view");
+          }
+        });
+      },
+      { threshold: [0, 0.12, 0.5] }
+    );
+    observer.observe(section);
+
+    return () => observer.disconnect();
+  }, []);
+
+  // getSlideDuration
+  const getSlideDuration = useCallback(async (index) => {
+    const slide = items[index];
+    if (slide.type === "video") {
+      const video = innerRef.current?.querySelector(`#video-${index}`);
+      if (video) {
+        if (video.duration && !isNaN(video.duration) && video.duration > 0 && isFinite(video.duration)) {
+          return Math.max(1, Math.round(video.duration));
+        }
+        return new Promise((resolve) => {
+          const onMeta = () => {
+            video.removeEventListener("loadedmetadata", onMeta);
+            const d = video.duration && isFinite(video.duration) && video.duration > 0 ? Math.round(video.duration) : defaultDuration;
+            resolve(d);
+          };
+          video.addEventListener("loadedmetadata", onMeta);
+          try { video.load(); } catch (e) { void e; }
+          setTimeout(() => {
+            video.removeEventListener("loadedmetadata", onMeta);
+            resolve(defaultDuration);
+          }, 2500);
+        });
+      }
+    }
+    return defaultDuration;
+  }, [defaultDuration, items]);
+
+  // clearTimer
+  const clearTimer = useCallback(() => {
+    if (slideTimerRef.current) {
+      clearTimeout(slideTimerRef.current);
+      slideTimerRef.current = null;
+    }
+  }, []);
+
+  // clearAllLoadingExcept
+  const clearAllLoadingExcept = useCallback((keep = -1) => {
+    const dots = dotsWrapRef.current?.querySelectorAll(".carousel-dot-item");
+    dots?.forEach((dot, idx) => {
+      if (idx !== keep) {
+        dot.classList.remove("loading", "paused", "dir-rtl");
+      }
+    });
+  }, []);
+
+  // startSlidePlayback
+  const startSlidePlayback = useCallback(async (resume = false, direction = "ltr") => {
+    clearTimer();
+
+    const allVideos = innerRef.current?.querySelectorAll("video");
+    allVideos?.forEach((v, idx) => {
+      if (idx !== current) {
+        try { v.pause(); v.currentTime = 0; } catch (e) { void e; }
+      }
+    });
+
+    const durSec = await getSlideDuration(current);
+    const durMs = durSec * 1000;
+    if (!resume) {
+      slideDurationMsRef.current = durMs;
+      slideRemainingMsRef.current = durMs;
+    }
+    clearAllLoadingExcept(current);
+    const dot = dotsWrapRef.current?.querySelector(`.carousel-dot-item[data-index="${current}"]`);
+    if (dot) {
+      dot.classList.add("loading");
+      dot.classList.remove("paused");
+      if (direction === "rtl") dot.classList.add("dir-rtl");
+      else dot.classList.remove("dir-rtl");
+      dot.style.setProperty("--loading-duration", `${durSec}s`);
+    }
+
+    const video = innerRef.current?.querySelector(`#video-${current}`);
+    if (video && isPlaying) {
+      try {
+        if (!resume) video.currentTime = 0;
+        video.muted = true;
+        await video.play().catch((e) => { void e; });
+      } catch (e) { void e; }
+    }
+
+    slideStartTimeRef.current = Date.now();
+    setSlideCompleted(false);
+    slideTimerRef.current = setTimeout(async () => {
+      if (dot) dot.classList.remove("loading", "paused", "dir-rtl");
+      if (video) {
+        try { video.pause(); video.currentTime = 0; } catch (e) { void e; }
+      }
+      if (current === items.length - 1) {
+        setIsPlaying(false);
+        setSlideCompleted(true);
+        clearTimer();
+        return;
+      }
+      setCurrent((prev) => (prev + 1) % items.length);
+    }, slideRemainingMsRef.current);
+  }, [current, isPlaying, getSlideDuration, clearTimer, clearAllLoadingExcept, items.length]);
+
+  // pauseCurrentSlide
+  const pauseCurrentSlide = useCallback(() => {
+    if (!slideTimerRef.current) return;
+    const elapsed = Date.now() - slideStartTimeRef.current;
+    slideRemainingMsRef.current = Math.max(0, slideDurationMsRef.current - elapsed);
+    clearTimer();
+    const dot = dotsWrapRef.current?.querySelector(`.carousel-dot-item[data-index="${current}"]`);
+    if (dot) dot.classList.add("paused");
+    const video = innerRef.current?.querySelector(`#video-${current}`);
+    if (video) {
+      try { video.pause(); } catch (e) { void e; }
+    }
+  }, [current, clearTimer]);
+
+  // resumeCurrentSlide
+  const resumeCurrentSlide = useCallback(() => {
+    const dot = dotsWrapRef.current?.querySelector(`.carousel-dot-item[data-index="${current}"]`);
+    if (dot) dot.classList.remove("paused");
+    const video = innerRef.current?.querySelector(`#video-${current}`);
+    if (video) {
+      try { video.play().catch((e) => { void e; }); } catch (e) { void e; }
+    }
+    slideStartTimeRef.current = Date.now();
+    slideTimerRef.current = setTimeout(async () => {
+      if (dot) dot.classList.remove("loading", "paused", "dir-rtl");
+      if (video) {
+        try { video.pause(); } catch (e) { void e; }
+      }
+      if (current === items.length - 1) {
+        setIsPlaying(false);
+        setSlideCompleted(true);
+        clearTimer();
+        return;
+      }
+      setCurrent((prev) => (prev + 1) % items.length);
+    }, slideRemainingMsRef.current);
+    setSlideCompleted(false);
+  }, [current, clearTimer, items.length]);
+
+  // togglePlay - moved above effects and JSX to avoid TDZ
+  const togglePlay = useCallback(() => {
+    if (!isPlaying && slideCompleted) {
+      clearAllLoadingExcept(-1);
+      const allVideos = innerRef.current?.querySelectorAll("video");
+      allVideos?.forEach((video) => {
+        try { video.pause(); video.currentTime = 0; } catch (e) { void e; }
+      });
+
+      setCurrent(0);
+      setIsPlaying(true);
+      setTimeout(() => startSlidePlayback(false, "ltr"), 50);
+      return;
+    }
+
+    if (isPlaying) {
+      setIsPlaying(false);
+      pauseCurrentSlide();
+    } else {
+      setIsPlaying(true);
+      if (slideRemainingMsRef.current > 0 && slideRemainingMsRef.current < (slideDurationMsRef.current || Infinity)) {
+        resumeCurrentSlide();
+      } else {
+        startSlidePlayback(false, lastDirection || "ltr");
+      }
+    }
+  }, [
+    isPlaying,
+    slideCompleted,
+    clearAllLoadingExcept,
+    pauseCurrentSlide,
+    resumeCurrentSlide,
+    startSlidePlayback,
+    lastDirection,
+  ]);
+
+  // Define goToSlide before effects that depend on it to avoid TDZ issues
+  const goToSlide = useCallback(
+    (index, { playImmediately = false, direction = "ltr" } = {}) => {
+      clearTimer();
+
+      const allVideos = innerRef.current?.querySelectorAll("video");
+      allVideos?.forEach((video) => {
+        try {
+          video.pause();
+          video.currentTime = 0;
+        } catch (e) {
+          void e;
+        }
+      });
+
+      clearAllLoadingExcept(-1);
+
+      setCurrent(index);
+      slideDurationMsRef.current = 0;
+      slideRemainingMsRef.current = 0;
+      slideStartTimeRef.current = 0;
+      setSlideCompleted(false);
+
+      if (playImmediately) {
+        setLastDirection(direction);
+        setIsPlaying(true);
+        setTimeout(() => startSlidePlayback(false, direction), 50);
+      } else {
+        setIsPlaying(false);
+      }
+    },
+    [clearTimer, clearAllLoadingExcept, startSlidePlayback]
+  );
+
+  useEffect(() => {
+    const handleStart = (e) => {
+      if (isPlaying) togglePlay();
+      pauseCurrentSlide();
+      clearTimer();
+      dragStartX.current = e.touches ? e.touches[0].clientX : e.clientX;
+      setIsDragging(true);
+    };
+
+    const handleMove = (e) => {
+      if (!isDragging) return;
+      e.preventDefault();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      let deltaX = clientX - dragStartX.current;
+      let progress = deltaX / slideWidth.current;
+      const dir = -Math.sign(deltaX);
+      const target = current + dir;
+      if (!isWithinBounds(target)) return;
+
+      slideRefs.current.forEach((slide, i) => {
+        if (slide) {
+          const from = getTranslateX(i, current);
+          const to = getTranslateX(i, target);
+          const lerped = lerp(from, to, Math.abs(progress));
+          slide.style.transition = "none";
+          slide.style.transform = `translateX(${lerped}px)`;
+        }
+      });
+
+      if (Math.abs(progress) >= 1) {
+        setCurrent((prev) => prev + dir);
+        dragStartX.current = clientX;
+      }
+    };
+
+    const handleEnd = (e) => {
+      setIsDragging(false);
+      const clientX = e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+      let deltaX = clientX - dragStartX.current;
+      let progress = deltaX / slideWidth.current;
+      const dir = -Math.sign(deltaX);
+      const shouldSnap = Math.abs(progress) > 0.3;
+      let target = shouldSnap ? current + dir : current;
+      if (!isWithinBounds(target)) target = current;
+      setLastDirection(dir > 0 ? "rtl" : "ltr");
+      setCurrent(target);
+      updatePositions(true);
+      if (isPlaying) {
+        setTimeout(() => {
+          if (isPlaying) startSlidePlayback(false, lastDirection);
+        }, 400);
+      }
+    };
+
+    const el = carouselRef.current;
+    if (el) {
+      el.addEventListener("mousedown", handleStart);
+      el.addEventListener("touchstart", handleStart, { passive: false });
+    }
+
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleEnd);
+    document.addEventListener("touchmove", handleMove, { passive: false });
+    document.addEventListener("touchend", handleEnd);
+
+    return () => {
+      if (el) {
+        el.removeEventListener("mousedown", handleStart);
+        el.removeEventListener("touchstart", handleStart);
+      }
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleEnd);
+      document.removeEventListener("touchmove", handleMove);
+      document.removeEventListener("touchend", handleEnd);
+    };
+  }, [
+    isDragging,
+    current,
+    isPlaying,
+    lastDirection,
+    updatePositions,
+    togglePlay,
+    pauseCurrentSlide,
+    clearTimer,
+    startSlidePlayback,
+    isWithinBounds,
+  ]);
+
+  useEffect(() => {
+    const prevOverlay = prevOverlayRef.current;
+    const nextOverlay = nextOverlayRef.current;
+
+    const handlePrevClick = () => {
+      const idx = (current - 1 + items.length) % items.length;
+      const dir = "ltr";
+      setLastDirection(dir);
+      goToSlide(idx, { playImmediately: isPlaying, direction: dir });
+    };
+
+    const handleNextClick = () => {
+      const idx = (current + 1) % items.length;
+      const dir = "rtl";
+      setLastDirection(dir);
+      goToSlide(idx, { playImmediately: isPlaying, direction: dir });
+    };
+
+    prevOverlay?.addEventListener("click", handlePrevClick);
+    nextOverlay?.addEventListener("click", handleNextClick);
+
+    return () => {
+      prevOverlay?.removeEventListener("click", handlePrevClick);
+      nextOverlay?.removeEventListener("click", handleNextClick);
+    };
+  }, [current, isPlaying, goToSlide, items.length]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        const idx = (current - 1 + items.length) % items.length;
+        setLastDirection("ltr");
+        goToSlide(idx, { playImmediately: isPlaying, direction: "ltr" });
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        const idx = (current + 1) % items.length;
+        setLastDirection("rtl");
+        goToSlide(idx, { playImmediately: isPlaying, direction: "rtl" });
+      }
+    };
+
+    const section = sectionRef.current;
+    section?.addEventListener("keydown", handleKeyDown);
+    return () => section?.removeEventListener("keydown", handleKeyDown);
+  }, [current, isPlaying, goToSlide, items.length]);
+
+
+
+  return (
+    <section className="carousel-outer-section" ref={sectionRef} tabIndex={0} aria-label="Media carousel">
+      <style>{`
+        :root {
+          --bg: #1d1d1f;
+          --control-bg: #373739;
+          --dot-default: rgba(205, 205, 208, 0.8);
+          --dot-active: rgba(147, 146, 146, 1);
+          --dot-size: 10px;
+          --progress-bar-width: 56px;
+          --play-size: 64px;
+          --loading-fill-color: #e7e7e7ff;
+          --arrow-overlay-width: 15%;
+          --arrow-bg: rgba(0,0,0,0.14);
+          --arrow-bg-hover: rgba(255,255,255,0.05);
+        }
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        .carousel-outer-section {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+          background: var(--bg);
+          min-height: 120vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          color: white;
+        }
+        .carousel-wrapper {
+          max-width: 950px;
+          width: 100%;
+          position: relative;
+        }
+        .carousel-heading {
+          text-align: left;
+          margin-bottom: 50px;
+          font-size: 2.5rem;
+        }
+        .carousel-container {
+          position: relative;
+        }
+        .carousel-viewport {
+          width: 100%;
+          height: 520px;
+          border-radius: 20px;
+          overflow: hidden;
+          background: #000000ff;
+        }
+        .custom-carousel {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          user-select: none;
+          cursor: grab;
+        }
+        .custom-carousel:active {
+          cursor: grabbing;
+        }
+        .carousel-inner {
+          position: relative;
+          height: 100%;
+        }
+        .carousel-item {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: calc(100% - 100px);
+          height: 100%;
+          display: grid;
+          place-items: center;
+          border-radius: 5px;
+          overflow: hidden;
+          will-change: transform;
+        }
+        .carousel-item img, .carousel-item video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .carousel-caption {
+          position: absolute;
+          top: 20px;
+          left: 20px;
+          font-size: 1.5rem;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+          text-align: left;
+        }
+        .arrow-overlay {
+          position: absolute;
+          top: 0;
+          height: 100%;
+          width: var(--arrow-overlay-width);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          z-index: 10;
+          background: transparent;
+          transition: background 0.3s;
+        }
+        .arrow-overlay:hover {
+          background: var(--arrow-bg-hover);
+        }
+        .left {
+          left: 0;
+        }
+        .right {
+          right: 0;
+        }
+        .arrow-icon {
+          width: 48px;
+          height: 48px;
+          fill: white;
+          opacity: 0;
+          pointer-events: none;
+        }
+        .controls-container {
+          position: sticky;
+          top: 20px;
+          bottom: 20px;
+          opacity: 0;
+          transition: opacity 0.6s;
+          z-index: 20;
+        }
+        .carousel-outer-section.carousel-in-view .controls-container {
+          opacity: 1;
+          animation: slideIn 0.6s ease-out;
+        }
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .progress-controls {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          margin-top: 25px;
+          gap: 20px;
+        }
+        .play-circle {
+          width: var(--play-size);
+          height: var(--play-size);
+          border-radius: 50%;
+          background: var(--control-bg);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s;
+        }
+        .play-circle:hover {
+          transform: scale(1.1);
+          background-color: #3f3f3fff;
+        }
+        .play-circle svg {
+          width: 32px;
+          height: 32px;
+          fill: white;
+        }
+        .controls-ring {
+          display: flex;
+        
+        }
+        .carousel-dot-items {
+          display: flex;
+          gap: 12px;
+          list-style: none;
+          background: var(--control-bg);
+          border-radius: 15px;
+          padding: 20px;
+
+        }
+        .carousel-dot-item {
+          position: relative;
+          width: var(--dot-size);
+          height: var(--dot-size);
+          border-radius: 50%;
+          background: var(--dot-default);
+          overflow: hidden;
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+          cursor: pointer;
+        }
+        .carousel-dot-item.current {
+          width: 35px;
+          border-radius: 6px;
+          background: var(--dot-active);
+          transform: scale(1.05);
+        }
+        .carousel-dot-item .progress {
+          position: absolute;
+          left: 0;
+          top: 0;
+          height: 100%;
+          width: 0;
+          background: var(--loading-fill-color);
+          transition: none;
+        }
+        .carousel-dot-item.loading .progress {
+          width: 100%;
+          transition: width var(--loading-duration) linear;
+        }
+        .carousel-dot-item.paused .progress {
+          transition: none;
+        }
+        .carousel-dot-item.dir-rtl .progress {
+          left: auto;
+          right: 0;
+        }
+        .carousel-dot-link {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          z-index: 1;
+        }
+        .visuallyhidden {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          margin: -1px;
+          padding: 0;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          border: 0;
+        }
+        @media (max-width: 768px) {
+          .carousel-viewport {
+            height: 350px;
+          }
+          .arrow-icon {
+            width: 40px;
+            height: 40px;
+          }
+        }
+      `}</style>
+
+      <div className="carousel-wrapper">
+        <h1 className="carousel-heading">Get the highlights.</h1>
+
+        <div className="carousel-container">
+          <div className="carousel-section">
+            <div className="carousel-viewport">
+              <div className="custom-carousel" ref={carouselRef} data-default-duration={defaultDuration}>
+                <div className="carousel-inner" ref={innerRef}>
+                  {items.map((item, index) => (
+                    <div
+                      key={index}
+                      className="carousel-item"
+                      data-index={index}
+                      id={`slide-${index}`}
+                      ref={(el) => (slideRefs.current[index] = el)}
+                      aria-hidden={index === current ? "false" : "true"}
+                    >
+                      {item.type === "image" ? (
+                        <img src={item.src} alt={item.alt} />
+                      ) : (
+                        <video playsInline muted preload="metadata" id={`video-${index}`}>
+                          <source src={item.src} type="video/mp4" />
+                        </video>
+                      )}
+                      {item.caption && (
+                        <div className="carousel-caption" dangerouslySetInnerHTML={{ __html: item.caption }} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="arrow-overlay left" ref={prevOverlayRef} role="button" aria-label="Previous slide">
+                  <div className="arrow-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="arrow-overlay right" ref={nextOverlayRef} role="button" aria-label="Next slide">
+                  <div className="arrow-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="controls-container" aria-hidden="false">
+          <div className="progress-controls" role="toolbar" aria-label="Carousel controls">
+            <div
+              className="play-circle"
+              ref={playBtnRef}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isPlaying}
+              aria-label={isPlaying ? "Pause" : slideCompleted ? "Replay" : "Play"}
+              onClick={togglePlay}
+              onKeyDown={(e) => {
+                if (e.key === " " || e.key === "Enter") {
+                  e.preventDefault();
+                  togglePlay();
+                }
+              }}
+            >
+              <svg
+                id="icon-play"
+                viewBox="0 0 56 56"
+                style={{ display: isPlaying ? "none" : slideCompleted ? "none" : "block" }}
+              >
+                <path d="m23.7555 36.6237c.4478 0 .8598-.1343 1.4241-.4568l10.9178-6.3322c.8598-.5016 1.3614-1.021 1.3614-1.8361 0-.8061-.5016-1.3255-1.3614-1.8271l-10.9178-6.3322c-.5643-.3314-.9762-.4657-1.4241-.4657-.9315 0-1.7555.7165-1.7555 1.9435v13.3629c0 1.227.824 1.9435 1.7555 1.9435z" />
+              </svg>
+              <svg
+                id="icon-pause"
+                viewBox="0 0 56 56"
+                style={{ display: isPlaying ? "block" : "none" }}
+              >
+                <path d="m21.7334 36.67h2.5342c1.1483 0 1.7324-.5796 1.7324-1.7193v-13.9015c0-1.12-.5841-1.6898-1.7324-1.7193h-2.5342c-1.1483 0-1.7324.5698-1.7324 1.7193v13.9015c-.0297 1.1396.5544 1.7193 1.7324 1.7193zm9.9992 0h2.5347c1.1485 0 1.7327-.5796 1.7327-1.7193v-13.9015c0-1.12-.5842-1.7193-1.7327-1.7193h-2.5347c-1.1485 0-1.7327.5698-1.7327 1.7193v13.9015c0 1.1396.5545 1.7193 1.7327 1.7193z" />
+              </svg>
+              <svg
+                id="icon-replay"
+                viewBox="0 0 56 56"
+                style={{ display: slideCompleted ? "block" : "none" }}
+              >
+                <path d="m36.2448 26.6447c-1.1073 0-2.0052.8978-2.0052 2.0052 0 3.4405-2.7992 6.2397-6.2397 6.2397s-6.2397-2.7992-6.2397-6.2397 2.7992-6.2397 6.2397-6.2397c.0283 0 .0546-.0072.0825-.0083l-1.2839 1.2841c-.7833.7828-.7833 2.0526 0 2.8354.3911.3916.9047.5874 1.4177.5874s1.0266-.1958 1.4177-.5874l4.4406-4.4406c.7833-.7828.7833-2.0526 0-2.8354l-4.657-4.657c-.7823-.7833-2.0531-.7833-2.8354 0-.7833.7828-.7833 2.0526 0 2.8354l.9973.9974c-5.4561.223-9.8295 4.7189-9.8295 10.2287 0 5.6517 4.5983 10.25 10.25 10.25s10.25-4.5983 10.25-10.25c0-1.1073-.8978-2.0052-2.0052-2.0052z" />
+              </svg>
+            </div>
+
+            <div className="controls-ring">
+              <ul className="carousel-dot-items" ref={dotsWrapRef} role="tablist" aria-label="Slides">
+                {items.map((_, index) => (
+                  <li
+                    key={index}
+                    className={`carousel-dot-item ${index === current ? "current" : ""}`}
+                    data-index={index}
+                  >
+                    <span className="progress"></span>
+                    <a
+                      className="carousel-dot-link"
+                      href={`#slide-${index}`}
+                      role="tab"
+                      aria-controls={`slide-${index}`}
+                      aria-selected={index === current}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const dir = index > current ? "rtl" : "ltr";
+                        setLastDirection(dir);
+                        goToSlide(index, { playImmediately: isPlaying, direction: dir });
+                      }}
+                    >
+                      <span className="visuallyhidden">Item {index + 1}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
