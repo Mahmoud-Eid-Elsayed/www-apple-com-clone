@@ -1,71 +1,109 @@
-import { Suspense } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Environment, Loader, Html } from "@react-three/drei";
-import { EffectComposer, Bloom } from "@react-three/postprocessing";
-import { Model } from "./3D-iphone-16-scene.jsx"; // استيراد صحيح
-import "./Phone3DViewer.css";
+import { OrbitControls, Environment } from "@react-three/drei";
+import { Model } from "./3D-iphone-16-scene.jsx";
 
-// شاشة التحميل
 function LoadingScreen() {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(timer);
+          return 100;
+        }
+        return prev + 5;
+      });
+    }, 50);
+
+    return () => clearInterval(timer);
+  }, []);
+
   return (
-    <Html center>
-      <div className="loader-overlay">
-        <div className="loader-blur" />
-        <div className="loader-content">
-          <div className="loader-spinner" />
-          <span className="loader-headline-text">
-            Click and turn to explore iPhone.
-          </span>
-        </div>
+    <div style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "#000",
+      zIndex: 10
+    }}>
+      <p style={{
+        margin: "0 0 20px 0",
+        fontSize: "18px",
+        fontWeight: 500,
+        color: "#fff",
+        fontFamily: "system-ui, -apple-system, sans-serif"
+      }}>
+        Click and turn to explore iPhone.
+      </p>
+      <div style={{
+        width: "200px",
+        height: "4px",
+        backgroundColor: "rgba(255, 255, 255, 0.2)",
+        borderRadius: "2px",
+        overflow: "hidden"
+      }}>
+        <div style={{
+          width: `${progress}%`,
+          height: "100%",
+          backgroundColor: "#fff",
+          borderRadius: "2px",
+          transition: "width 0.3s ease"
+        }} />
       </div>
-    </Html>
+    </div>
   );
 }
 
 export default function Phone3DViewer() {
-  return (
-    <section className="phone-section">
-      <Canvas
-        shadows
-        dpr={[1, 2]}
-        gl={{ antialias: true }}
-        camera={{ position: [0, 0, 10], fov: 36 }}
-      >
-        <Suspense fallback={<LoadingScreen />}>
-          <ambientLight intensity={0.3} />
-          <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
+  const [isLoading, setIsLoading] = useState(true);
 
-          {/* الموديل */}
-          <Model scale={3} position={[0, -1, 0]} />
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  return (
+    <div style={{
+      position: "relative",
+      width: "100%",
+      height: "100vh",
+      backgroundColor: "#000"
+    }}>
+      {isLoading && <LoadingScreen />}
+
+      <Canvas
+        camera={{ position: [2, 0, 1.5], fov: 20 }}
+        gl={{ antialias: true }}
+      >
+        <Suspense fallback={null}>
+          <ambientLight intensity={0.6} />
+          <directionalLight position={[5, 5, 5]} intensity={1.2} />
+          <directionalLight position={[-5, -5, -5]} intensity={0.5} />
+
+          <Model scale={2.8} position={[0, 0, 0]} />
 
           <OrbitControls
             enablePan={false}
-            enableZoom={true}
-            minDistance={6}
-            maxDistance={16}
-            autoRotate
-            autoRotateSpeed={0.8}
+            enableZoom={false}
+            minPolarAngle={Math.PI / 3}
+            maxPolarAngle={Math.PI / 1.5}
+            rotateSpeed={0.5}
           />
 
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2.5, 0]} receiveShadow>
-            <planeGeometry args={[25, 25]} />
-            <meshStandardMaterial color="#0a0a0a" metalness={0.9} roughness={0.1} />
-          </mesh>
-
-          <Environment preset="night" />
-          <EffectComposer>
-            <Bloom intensity={0.5} luminanceThreshold={0.8} />
-          </EffectComposer>
+          <Environment preset="city" />
         </Suspense>
       </Canvas>
-
-      <Loader
-        containerStyles={{ background: "#000" }}
-        innerStyles={{ background: "#111" }}
-        barStyles={{ background: "#fff" }}
-        dataStyles={{ color: "#fff" }}
-        dataInterpolation={(p) => `${p.toFixed(0)}%`}
-      />
-    </section>
+    </div>
   );
 }

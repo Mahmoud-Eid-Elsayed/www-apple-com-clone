@@ -5,14 +5,14 @@ const colors = [
   {
     value: "all-colors",
     image:
-      "https://www.apple.com/euro/iphone-16-pro/a/screens_alt/images/overview/product-viewer/iphone-pro/all_colors__fdpduog7urm2_xlarge.jpg",
+      "/images/ProductViewer/all_colors_xlarge.webp",
     ariaLabel: "6.3” iPhone 16 Pro 1 in four colours",
     label: "6.3” iPhone 16 Pro<sup>1</sup> in four colours",
   },
   {
     value: "TiBlack",
     image:
-      "https://www.apple.com/euro/iphone-16-pro/a/screens_alt/images/overview/product-viewer/iphone-pro/black_titanium__ezezv5esulua_xlarge.jpg",
+      "/images/ProductViewer/black_titanium_xlarge.webp",
     ariaLabel: "6.9” iPhone 16 Pro Max & 6.3” iPhone 16 Pro in Black Titanium",
     label:
       "6.9” iPhone 16 Pro Max<sup>1</sup> & 6.3” iPhone 16 Pro<sup>1</sup> in Black Titanium",
@@ -20,7 +20,7 @@ const colors = [
   {
     value: "TiWhite",
     image:
-      "https://www.apple.com/euro/iphone-16-pro/a/screens_alt/images/overview/product-viewer/iphone-pro/white_titanium__b0s9tw63hs4i_xlarge.jpg",
+      "/images/ProductViewer/white_titanium_xlarge.webp",
     ariaLabel: "6.9” iPhone 16 Pro Max & 6.3” iPhone 16 Pro in White Titanium",
     label:
       "6.9” iPhone 16 Pro Max<sup>1</sup> & 6.3” iPhone 16 Pro<sup>1</sup> in White Titanium",
@@ -28,7 +28,7 @@ const colors = [
   {
     value: "TiGray",
     image:
-      "https://www.apple.com/euro/iphone-16-pro/a/screens_alt/images/overview/product-viewer/iphone-pro/natural_titanium__22ovjg0i0huy_xlarge.jpg",
+      "/images/ProductViewer/natural_titanium_xlarge.webp",
     ariaLabel:
       "6.9” iPhone 16 Pro Max & 6.3” iPhone 16 Pro in Natural Titanium",
     label:
@@ -37,7 +37,7 @@ const colors = [
   {
     value: "TiRose",
     image:
-      "https://www.apple.com/euro/iphone-16-pro/a/screens_alt/images/overview/product-viewer/iphone-pro/desert_titanium__gcg1i94xakuq_xlarge.jpg",
+      "/images/ProductViewer/desert_titanium_xlarge.webp",
     ariaLabel: "6.9” iPhone 16 Pro Max & 6.3” iPhone 16 Pro in Desert Titanium",
     label:
       "6.9” iPhone 16 Pro Max<sup>1</sup> & 6.3” iPhone 16 Pro<sup>1</sup> in Desert Titanium",
@@ -59,9 +59,8 @@ const ProductViewer = () => {
       const windowHeight = window.innerHeight;
       const BOTTOM_OFFSET = 20;
 
-      // السكشن داخل الشاشة
       if (rect.top < windowHeight && rect.bottom > 0) {
-        // لو وصل لنهاية السكشن، نثبته عند حدود السكشن
+
         if (rect.bottom < windowHeight) {
           const diff = windowHeight - rect.bottom + BOTTOM_OFFSET;
           setNavStyle({ opacity: 1, bottom: `${diff}px` });
@@ -101,7 +100,7 @@ const ProductViewer = () => {
         </div>
       </div>
 
-      {/* Controller - Fixed Bottom داخل حدود السكشن */}
+      {/* Controller - Fixed Bottom */}
       <div
         ref={navRef}
         className="product-viewer-nav-container"
@@ -131,8 +130,8 @@ const ProductViewer = () => {
                 <label
                   htmlFor={`color-${color.value}`}
                   className={`colornav-label ${selectedColor.value === color.value
-                      ? "colornav-label-active"
-                      : ""
+                    ? "colornav-label-active"
+                    : ""
                     } ${color.value}`}
                 >
                   <span className="colornav-swatch-text" aria-hidden />
