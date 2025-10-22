@@ -9,11 +9,13 @@ export default function Carousel({ defaultDuration = 7 }) {
   const prevOverlayRef = useRef(null);
   const nextOverlayRef = useRef(null);
   const slideRefs = useRef([]);
+  const controlsRef = useRef(null);
 
   const slideWidth = useRef(0);
   const wrapperWidth = useRef(0);
   const dragStartX = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [controlsStyle, setControlsStyle] = useState({ opacity: 0, bottom: '20px' });
 
   const [current, setCurrent] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -62,6 +64,36 @@ export default function Carousel({ defaultDuration = 7 }) {
       caption: "The first iPhone designed<br>for Apple Intelligence.<br>Personal, private, powerful.",
     },
   ], []);
+
+  // Sticky controls scroll handler
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!sectionRef.current || !controlsRef.current) return;
+
+      const section = sectionRef.current;
+      const rect = section.getBoundingClientRect();
+      const windowHeight = window.innerHeight;
+      const BOTTOM_OFFSET = 20;
+
+      // السكشن داخل الشاشة
+      if (rect.top < windowHeight && rect.bottom > 0) {
+        // لو وصل لنهاية السكشن، نثبته عند حدود السكشن
+        if (rect.bottom < windowHeight) {
+          const diff = windowHeight - rect.bottom + BOTTOM_OFFSET;
+          setControlsStyle({ opacity: 1, bottom: `${diff}px` });
+        } else {
+          setControlsStyle({ opacity: 1, bottom: `${BOTTOM_OFFSET}px` });
+        }
+      } else {
+        setControlsStyle({ opacity: 0, bottom: `${BOTTOM_OFFSET}px` });
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    handleScroll(); // Initial check
+    
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const lerp = (start, end, t) => start + t * (end - start);
 
@@ -117,17 +149,14 @@ export default function Carousel({ defaultDuration = 7 }) {
     return () => observer.disconnect();
   }, []);
 
-  // getSlideDuration - improved to handle preload better
   const getSlideDuration = useCallback(async (index) => {
     const slide = items[index];
     if (slide.type === "video") {
       const video = innerRef.current?.querySelector(`#video-${index}`);
       if (video) {
-        // If duration is already available, return it immediately
         if (video.duration && !isNaN(video.duration) && video.duration > 0 && isFinite(video.duration)) {
           return Math.max(1, Math.round(video.duration));
         }
-        // Wait for metadata to load
         return new Promise((resolve) => {
           const onMeta = () => {
             video.removeEventListener("loadedmetadata", onMeta);
@@ -135,11 +164,9 @@ export default function Carousel({ defaultDuration = 7 }) {
             resolve(d);
           };
           video.addEventListener("loadedmetadata", onMeta);
-          // Only load if not already loading
           if (video.readyState < 1) {
             try { video.load(); } catch (e) { void e; }
           }
-          // Reduced timeout for faster response
           setTimeout(() => {
             video.removeEventListener("loadedmetadata", onMeta);
             resolve(defaultDuration);
@@ -150,7 +177,6 @@ export default function Carousel({ defaultDuration = 7 }) {
     return defaultDuration;
   }, [defaultDuration, items]);
 
-  // clearTimer
   const clearTimer = useCallback(() => {
     if (slideTimerRef.current) {
       clearTimeout(slideTimerRef.current);
@@ -158,7 +184,6 @@ export default function Carousel({ defaultDuration = 7 }) {
     }
   }, []);
 
-  // clearAllLoadingExcept
   const clearAllLoadingExcept = useCallback((keep = -1) => {
     const dots = dotsWrapRef.current?.querySelectorAll(".carousel-dot-item");
     dots?.forEach((dot, idx) => {
@@ -168,11 +193,9 @@ export default function Carousel({ defaultDuration = 7 }) {
     });
   }, []);
 
-  // startSlidePlayback
   const startSlidePlayback = useCallback(async (resume = false, direction = "ltr") => {
     clearTimer();
 
-    // Pause all videos except current
     const allVideos = innerRef.current?.querySelectorAll("video");
     allVideos?.forEach((v, idx) => {
       if (idx !== current) {
@@ -180,7 +203,6 @@ export default function Carousel({ defaultDuration = 7 }) {
       }
     });
 
-    // Get duration for CURRENT slide
     const durSec = await getSlideDuration(current);
     const durMs = durSec * 1000;
 
@@ -199,18 +221,16 @@ export default function Carousel({ defaultDuration = 7 }) {
       dot.style.setProperty("--loading-duration", `${durSec}s`);
     }
 
-    // Play current video if it exists
     const video = innerRef.current?.querySelector(`#video-${current}`);
     if (video) {
       try {
         if (!resume) video.currentTime = 0;
         video.muted = true;
-        // Ensure video is loaded before playing
         if (video.readyState < 2) {
           await new Promise((resolve) => {
             video.addEventListener('loadeddata', resolve, { once: true });
             video.load();
-            setTimeout(resolve, 500); // Fallback timeout
+            setTimeout(resolve, 500);
           });
         }
         await video.play().catch((e) => { void e; });
@@ -235,7 +255,6 @@ export default function Carousel({ defaultDuration = 7 }) {
     }, slideRemainingMsRef.current);
   }, [current, getSlideDuration, clearTimer, clearAllLoadingExcept, items.length]);
 
-  // pauseCurrentSlide
   const pauseCurrentSlide = useCallback(() => {
     if (!slideTimerRef.current) return;
     const elapsed = Date.now() - slideStartTimeRef.current;
@@ -249,7 +268,6 @@ export default function Carousel({ defaultDuration = 7 }) {
     }
   }, [current, clearTimer]);
 
-  // resumeCurrentSlide
   const resumeCurrentSlide = useCallback(() => {
     const dot = dotsWrapRef.current?.querySelector(`.carousel-dot-item[data-index="${current}"]`);
     if (dot) dot.classList.remove("paused");
@@ -274,10 +292,8 @@ export default function Carousel({ defaultDuration = 7 }) {
     setSlideCompleted(false);
   }, [current, clearTimer, items.length]);
 
-  // togglePlay - moved above effects and JSX to avoid TDZ
   const togglePlay = useCallback(() => {
     if (!isPlaying && slideCompleted) {
-      // Replay from the current slide (do not jump to earlier slides)
       clearAllLoadingExcept(-1);
       const allVideos = innerRef.current?.querySelectorAll("video");
       allVideos?.forEach((video) => {
@@ -285,7 +301,6 @@ export default function Carousel({ defaultDuration = 7 }) {
       });
 
       setIsPlaying(true);
-      // Default direction ltr for replay visual
       setTimeout(() => startSlidePlayback(false, "ltr"), 50);
       return;
     }
@@ -311,7 +326,6 @@ export default function Carousel({ defaultDuration = 7 }) {
     lastDirection,
   ]);
 
-  // Define goToSlide before effects that depend on it to avoid TDZ issues
   const goToSlide = useCallback(
     (index, { playImmediately = false, direction = "ltr" } = {}) => {
       clearTimer();
@@ -514,21 +528,21 @@ export default function Carousel({ defaultDuration = 7 }) {
           padding: 20px;
           color: white;
           position: relative;
+          overflow-x: hidden;
         }
         .carousel-outer-section.carousel-in-view {}
         .carousel-wrapper {
           max-width: 950px;
           width: 100%;
-          position: -webkit-sticky;
-          position: sticky;
-          top: 0;
+          position: relative;
           margin: 0 auto;
           opacity: 0;
           transform: translateY(20px);
           transition: opacity 0.6s ease, transform 0.6s ease;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          padding-bottom: 120px;
         }
         .carousel-outer-section.carousel-in-view .carousel-wrapper {
           opacity: 1;
@@ -618,30 +632,18 @@ export default function Carousel({ defaultDuration = 7 }) {
           pointer-events: none;
         }
         .controls-container {
+          position: fixed;
+          left: 50%;
+          transform: translateX(-50%);
           width: 100%;
-          opacity: 0;
-          transition: opacity 0.6s, transform 0.3s ease-out;
-          z-index: 20;
-        }
-        .carousel-outer-section.carousel-in-view .controls-container {
-          opacity: 1;
-          animation: slideIn 0.6s ease-out;
-        }
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          max-width: 950px;
+          z-index: 999;
+          transition: opacity 0.3s ease, bottom 0.3s ease;
         }
         .progress-controls {
           display: flex;
           justify-content: center;
           align-items: center;
-          margin-top: 25px;
           gap: 20px;
         }
         .play-circle {
@@ -666,7 +668,6 @@ export default function Carousel({ defaultDuration = 7 }) {
         }
         .controls-ring {
           display: flex;
-        
         }
         .carousel-dot-items {
           display: flex;
@@ -675,7 +676,6 @@ export default function Carousel({ defaultDuration = 7 }) {
           background: var(--control-bg);
           border-radius: 15px;
           padding: 20px;
-
         }
         .carousel-dot-item {
           position: relative;
@@ -792,75 +792,84 @@ export default function Carousel({ defaultDuration = 7 }) {
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="controls-container" aria-hidden="false">
-          <div className="progress-controls" role="toolbar" aria-label="Carousel controls">
-            <div
-              className="play-circle"
-              ref={playBtnRef}
-              role="button"
-              tabIndex={0}
-              aria-pressed={isPlaying}
-              aria-label={isPlaying ? "Pause" : slideCompleted ? "Replay" : "Play"}
-              onClick={togglePlay}
-              onKeyDown={(e) => {
-                if (e.key === " " || e.key === "Enter") {
-                  e.preventDefault();
-                  togglePlay();
-                }
-              }}
+      {/* Fixed Bottom Controls - داخل حدود السكشن */}
+      <div 
+        className="controls-container" 
+        ref={controlsRef}
+        aria-hidden="false"
+        style={{
+          opacity: controlsStyle.opacity,
+          bottom: controlsStyle.bottom,
+        }}
+      >
+        <div className="progress-controls" role="toolbar" aria-label="Carousel controls">
+          <div
+            className="play-circle"
+            ref={playBtnRef}
+            role="button"
+            tabIndex={0}
+            aria-pressed={isPlaying}
+            aria-label={isPlaying ? "Pause" : slideCompleted ? "Replay" : "Play"}
+            onClick={togglePlay}
+            onKeyDown={(e) => {
+              if (e.key === " " || e.key === "Enter") {
+                e.preventDefault();
+                togglePlay();
+              }
+            }}
+          >
+            <svg
+              id="icon-play"
+              viewBox="0 0 56 56"
+              style={{ display: isPlaying ? "none" : slideCompleted ? "none" : "block" }}
             >
-              <svg
-                id="icon-play"
-                viewBox="0 0 56 56"
-                style={{ display: isPlaying ? "none" : slideCompleted ? "none" : "block" }}
-              >
-                <path d="m23.7555 36.6237c.4478 0 .8598-.1343 1.4241-.4568l10.9178-6.3322c.8598-.5016 1.3614-1.021 1.3614-1.8361 0-.8061-.5016-1.3255-1.3614-1.8271l-10.9178-6.3322c-.5643-.3314-.9762-.4657-1.4241-.4657-.9315 0-1.7555.7165-1.7555 1.9435v13.3629c0 1.227.824 1.9435 1.7555 1.9435z" />
-              </svg>
-              <svg
-                id="icon-pause"
-                viewBox="0 0 56 56"
-                style={{ display: isPlaying ? "block" : "none" }}
-              >
-                <path d="m21.7334 36.67h2.5342c1.1483 0 1.7324-.5796 1.7324-1.7193v-13.9015c0-1.12-.5841-1.6898-1.7324-1.7193h-2.5342c-1.1483 0-1.7324.5698-1.7324 1.7193v13.9015c-.0297 1.1396.5544 1.7193 1.7324 1.7193zm9.9992 0h2.5347c1.1485 0 1.7327-.5796 1.7327-1.7193v-13.9015c0-1.12-.5842-1.7193-1.7327-1.7193h-2.5347c-1.1485 0-1.7327.5698-1.7327 1.7193v13.9015c0 1.1396.5545 1.7193 1.7327 1.7193z" />
-              </svg>
-              <svg
-                id="icon-replay"
-                viewBox="0 0 56 56"
-                style={{ display: slideCompleted ? "block" : "none" }}
-              >
-                <path d="m36.2448 26.6447c-1.1073 0-2.0052.8978-2.0052 2.0052 0 3.4405-2.7992 6.2397-6.2397 6.2397s-6.2397-2.7992-6.2397-6.2397 2.7992-6.2397 6.2397-6.2397c.0283 0 .0546-.0072.0825-.0083l-1.2839 1.2841c-.7833.7828-.7833 2.0526 0 2.8354.3911.3916.9047.5874 1.4177.5874s1.0266-.1958 1.4177-.5874l4.4406-4.4406c.7833-.7828.7833-2.0526 0-2.8354l-4.657-4.657c-.7823-.7833-2.0531-.7833-2.8354 0-.7833.7828-.7833 2.0526 0 2.8354l.9973.9974c-5.4561.223-9.8295 4.7189-9.8295 10.2287 0 5.6517 4.5983 10.25 10.25 10.25s10.25-4.5983 10.25-10.25c0-1.1073-.8978-2.0052-2.0052-2.0052z" />
-              </svg>
-            </div>
+              <path d="m23.7555 36.6237c.4478 0 .8598-.1343 1.4241-.4568l10.9178-6.3322c.8598-.5016 1.3614-1.021 1.3614-1.8361 0-.8061-.5016-1.3255-1.3614-1.8271l-10.9178-6.3322c-.5643-.3314-.9762-.4657-1.4241-.4657-.9315 0-1.7555.7165-1.7555 1.9435v13.3629c0 1.227.824 1.9435 1.7555 1.9435z" />
+            </svg>
+            <svg
+              id="icon-pause"
+              viewBox="0 0 56 56"
+              style={{ display: isPlaying ? "block" : "none" }}
+            >
+              <path d="m21.7334 36.67h2.5342c1.1483 0 1.7324-.5796 1.7324-1.7193v-13.9015c0-1.12-.5841-1.6898-1.7324-1.7193h-2.5342c-1.1483 0-1.7324.5698-1.7324 1.7193v13.9015c-.0297 1.1396.5544 1.7193 1.7324 1.7193zm9.9992 0h2.5347c1.1485 0 1.7327-.5796 1.7327-1.7193v-13.9015c0-1.12-.5842-1.7193-1.7327-1.7193h-2.5347c-1.1485 0-1.7327.5698-1.7327 1.7193v13.9015c0 1.1396.5545 1.7193 1.7327 1.7193z" />
+            </svg>
+            <svg
+              id="icon-replay"
+              viewBox="0 0 56 56"
+              style={{ display: slideCompleted ? "block" : "none" }}
+            >
+              <path d="m36.2448 26.6447c-1.1073 0-2.0052.8978-2.0052 2.0052 0 3.4405-2.7992 6.2397-6.2397 6.2397s-6.2397-2.7992-6.2397-6.2397 2.7992-6.2397 6.2397-6.2397c.0283 0 .0546-.0072.0825-.0083l-1.2839 1.2841c-.7833.7828-.7833 2.0526 0 2.8354.3911.3916.9047.5874 1.4177.5874s1.0266-.1958 1.4177-.5874l4.4406-4.4406c.7833-.7828.7833-2.0526 0-2.8354l-4.657-4.657c-.7823-.7833-2.0531-.7833-2.8354 0-.7833.7828-.7833 2.0526 0 2.8354l.9973.9974c-5.4561.223-9.8295 4.7189-9.8295 10.2287 0 5.6517 4.5983 10.25 10.25 10.25s10.25-4.5983 10.25-10.25c0-1.1073-.8978-2.0052-2.0052-2.0052z" />
+            </svg>
+          </div>
 
-            <div className="controls-ring">
-              <ul className="carousel-dot-items" ref={dotsWrapRef} role="tablist" aria-label="Slides">
-                {items.map((_, index) => (
-                  <li
-                    key={index}
-                    className={`carousel-dot-item ${index === current ? "current" : ""}`}
-                    data-index={index}
+          <div className="controls-ring">
+            <ul className="carousel-dot-items" ref={dotsWrapRef} role="tablist" aria-label="Slides">
+              {items.map((_, index) => (
+                <li
+                  key={index}
+                  className={`carousel-dot-item ${index === current ? "current" : ""}`}
+                  data-index={index}
+                >
+                  <span className="progress"></span>
+                  <a
+                    className="carousel-dot-link"
+                    href={`#slide-${index}`}
+                    role="tab"
+                    aria-controls={`slide-${index}`}
+                    aria-selected={index === current}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const dir = index > current ? "rtl" : "ltr";
+                      setLastDirection(dir);
+                      goToSlide(index, { playImmediately: isPlaying, direction: dir });
+                    }}
                   >
-                    <span className="progress"></span>
-                    <a
-                      className="carousel-dot-link"
-                      href={`#slide-${index}`}
-                      role="tab"
-                      aria-controls={`slide-${index}`}
-                      aria-selected={index === current}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const dir = index > current ? "rtl" : "ltr";
-                        setLastDirection(dir);
-                        goToSlide(index, { playImmediately: isPlaying, direction: dir });
-                      }}
-                    >
-                      <span className="visuallyhidden">Item {index + 1}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
+                    <span className="visuallyhidden">Item {index + 1}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>

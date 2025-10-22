@@ -1,0 +1,137 @@
+import React, { useState, useEffect, useRef } from "react";
+import "./ProductViewer.css";
+
+const colors = [
+  {
+    value: "all-colors",
+    image:
+      "https://www.apple.com/euro/iphone-16-pro/a/screens_alt/images/overview/product-viewer/iphone-pro/all_colors__fdpduog7urm2_xlarge.jpg",
+    ariaLabel: "6.3” iPhone 16 Pro 1 in four colours",
+    label: "6.3” iPhone 16 Pro<sup>1</sup> in four colours",
+  },
+  {
+    value: "TiBlack",
+    image:
+      "https://www.apple.com/euro/iphone-16-pro/a/screens_alt/images/overview/product-viewer/iphone-pro/black_titanium__ezezv5esulua_xlarge.jpg",
+    ariaLabel: "6.9” iPhone 16 Pro Max & 6.3” iPhone 16 Pro in Black Titanium",
+    label:
+      "6.9” iPhone 16 Pro Max<sup>1</sup> & 6.3” iPhone 16 Pro<sup>1</sup> in Black Titanium",
+  },
+  {
+    value: "TiWhite",
+    image:
+      "https://www.apple.com/euro/iphone-16-pro/a/screens_alt/images/overview/product-viewer/iphone-pro/white_titanium__b0s9tw63hs4i_xlarge.jpg",
+    ariaLabel: "6.9” iPhone 16 Pro Max & 6.3” iPhone 16 Pro in White Titanium",
+    label:
+      "6.9” iPhone 16 Pro Max<sup>1</sup> & 6.3” iPhone 16 Pro<sup>1</sup> in White Titanium",
+  },
+  {
+    value: "TiGray",
+    image:
+      "https://www.apple.com/euro/iphone-16-pro/a/screens_alt/images/overview/product-viewer/iphone-pro/natural_titanium__22ovjg0i0huy_xlarge.jpg",
+    ariaLabel:
+      "6.9” iPhone 16 Pro Max & 6.3” iPhone 16 Pro in Natural Titanium",
+    label:
+      "6.9” iPhone 16 Pro Max<sup>1</sup> & 6.3” iPhone 16 Pro<sup>1</sup> in Natural Titanium",
+  },
+  {
+    value: "TiRose",
+    image:
+      "https://www.apple.com/euro/iphone-16-pro/a/screens_alt/images/overview/product-viewer/iphone-pro/desert_titanium__gcg1i94xakuq_xlarge.jpg",
+    ariaLabel: "6.9” iPhone 16 Pro Max & 6.3” iPhone 16 Pro in Desert Titanium",
+    label:
+      "6.9” iPhone 16 Pro Max<sup>1</sup> & 6.3” iPhone 16 Pro<sup>1</sup> in Desert Titanium",
+  },
+];
+
+const ProductViewer = () => {
+  const [selectedColor, setSelectedColor] = useState(colors[0]);
+  const [isStickyTop, setIsStickyTop] = useState(false);
+  const [isStickyBottom, setIsStickyBottom] = useState(false);
+  const sectionRef = useRef(null);
+  const colorNavRef = useRef(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (sectionRef.current && colorNavRef.current) {
+        const section = sectionRef.current;
+        const sectionRect = section.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+
+        // Sticky behavior: stick to top or bottom of the section container
+        setIsStickyTop(
+          sectionRect.top <= 0 && sectionRect.bottom > viewportHeight
+        );
+        setIsStickyBottom(
+          sectionRect.bottom <= viewportHeight && sectionRect.top < 0
+        );
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const handleColorChange = (color) => {
+    setSelectedColor(color);
+  };
+
+  return (
+    <section ref={sectionRef} className="product-viewer-section">
+      <header className="product-viewer-header">
+        <h1 className="product-viewer-title">Take a closer look.</h1>
+        <div className="product-viewer-cta">
+
+        </div>
+      </header>
+      <div
+        className="product-viewer-label"
+        dangerouslySetInnerHTML={{ __html: selectedColor.label }}
+      />
+      <div className="product-viewer-content">
+        <div
+          ref={colorNavRef}
+          className={`product-viewer-colornav ${
+            isStickyTop ? "sticky-top" : isStickyBottom ? "sticky-bottom" : ""
+          }`}
+        >
+          <ul className="colornav-items" role="radiogroup">
+            {colors.map((color) => (
+              <li key={color.value} className="colornav-item">
+                <input
+                  type="radio"
+                  id={`color-${color.value}`}
+                  name="color-selector"
+                  value={color.value}
+                  checked={selectedColor.value === color.value}
+                  onChange={() => handleColorChange(color)}
+                  className="colornav-input"
+                  aria-label={color.ariaLabel}
+                />
+                <label
+                  htmlFor={`color-${color.value}`}
+                  className={`colornav-label ${
+                    selectedColor.value === color.value
+                      ? "colornav-label-active"
+                      : ""
+                  } ${color.value}`}
+                >
+                  <span className="colornav-swatch-text">{color.name}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="product-viewer-image-container">
+          <img
+            src={selectedColor.image}
+            alt={selectedColor.ariaLabel}
+            className="product-viewer-image"
+          />
+        </div>
+      </div>
+    </section>
+  );
+};
+
+export default ProductViewer;

@@ -4,6 +4,8 @@ import FixedNav from "./components/nav/FixedNav";
 import StickyNav from "./components/nav/StickyNav";
 import { Hero } from "./components/hero";
 import { Carousel } from "./components/carousel/";
+import ProductViewer from "./components/ProductViewer/ProductViewer";
+import Phone3DViewer from "./components/Phone3DViewer/Phone3DViewer";
 import Sections_A01 from "./components/Sections_A01/Sections";
 import ChipSection from "./components/ChipSection/ChipSection";
 import Footer from "./components/Footer/Footer";
@@ -28,6 +30,9 @@ function App() {
       <StickyNav visible={showLocalNav} />
       <Hero />
       <Carousel />
+      <div style={{ height: 100 }} />
+      <ProductViewer />
+      <Phone3DViewer />
       <Sections_A01 />
       <ChipScrollSection />
       <ChipSection />

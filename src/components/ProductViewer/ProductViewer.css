@@ -1,0 +1,161 @@
+.product-viewer-section {
+    background: #000;
+    color: #fff;
+    position: relative;
+    min-height: 120vh;
+    padding: 3rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.product-viewer-header {
+    width: 100%;
+    max-width: 1280px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.product-viewer-title {
+    font-size: 2.25rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.product-viewer-content {
+    width: 100%;
+    max-width: 1280px;
+    padding: 2rem 0 4rem 0;
+    display: flex;
+    justify-content: center;
+}
+
+/* Controller - Fixed Bottom داخل حدود السكشن */
+.product-viewer-nav-container {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(23rem, 90%);
+    z-index: 999;
+    transition: opacity 0.3s ease, bottom 0.3s ease;
+}
+
+.product-viewer-label {
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(0, 0, 0, 0.6);
+    padding: .5rem 1rem;
+    border-radius: 12px;
+    margin-bottom: 0.8rem;
+    text-align: center;
+}
+
+.product-viewer-colornav {
+    width: 100%;
+    background: rgb(46 46 48);
+    padding: .5rem;
+    border-radius: 999px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.colornav-items {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.colornav-item {
+    display: inline-block;
+}
+
+.colornav-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    clip: rect(0 0 0 0);
+    overflow: hidden;
+}
+
+.colornav-label {
+    width: 44px;
+    height: 44px;
+    border-radius: 9999px;
+    display: inline-block;
+    cursor: pointer;
+    box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.16);
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.colornav-label:hover {
+    transform: scale(1.05);
+}
+
+.colornav-label.active,
+.colornav-label.colornav-label-active {
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+    transform: scale(1.02);
+}
+
+.colornav-label.all-colors {
+    background: linear-gradient(90deg, #3c3c3e, #d4d4d4, #e5e5e5, #d7c7a7);
+}
+
+.colornav-label.TiBlack {
+    background: #3c3c3e;
+}
+
+.colornav-label.TiWhite {
+    background: #d4d4d4;
+}
+
+.colornav-label.TiGray {
+    background: #e5e5e5;
+}
+
+.colornav-label.TiRose {
+    background: #d7c7a7;
+}
+
+.colornav-swatch-text {
+    display: none;
+}
+
+.product-viewer-image-container {
+    margin-top: 2rem;
+    width: 100%;
+    max-width: 896px;
+}
+
+.product-viewer-image {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+@media (max-width: 640px) {
+    .product-viewer-nav-container {
+        width: calc(100% - 32px);
+    }
+
+    .colornav-label {
+        width: 40px;
+        height: 40px;
+    }
+
+    .colornav-items {
+        gap: .5rem;
+    }
+}
